@@ -10,6 +10,7 @@ cytoscape.use(cise);
 class App extends Component {
     state = {
         palavraBusca: "",
+        currentNode: null,
         elements: {
             nodes: [],
             edges: [],
@@ -21,19 +22,60 @@ class App extends Component {
         this.setState({palavraBusca: e.target.value})
     };
 
-    fetch = palavra => {
+    onSearch = e => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const {palavraBusca} = this.state;
+        this.setState({
+            nodes: [],
+            edges: [],
+            clusters: [],
+        });
+        this.fetchDominios(palavraBusca);
+    };
+
+
+    onClickNode = node => {
+        const isDominio = node.data('type') === 'dominio';
+
+        if (isDominio) {
+            const dominio = node.data("label");
+            const palavra = node.data("context");
+            this.fetchRelacionadas(dominio, palavra);
+        } else { // palavra
+            const palavra = node.data("label");
+            this.fetchDominios(palavra);
+        }
+    };
+
+    fetchDominios = palavra => {
         const currentElements = this.state.elements;
-        console.log(currentElements, "currentElements");
 
         axios
-            .get(`/api/resumo/${palavra}`)
+            .get(`/api/dominios/${palavra}`)
             .then(({data}) => {
-                const nodes = data.relacionadas
-                    .map(it => ({data: {id: it, label: it}}));
+                const nodes = [].concat({
+                    data: {
+                        id: palavra,
+                        label: palavra,
+                        context: palavra,
+                        type: 'palavra'
+                    }
+                }, data.map(it => ({
+                    data: {
+                        id: it,
+                        label: it,
+                        context: palavra,
+                        type: 'dominio'
+                    }
+                })));
+
+                console.log(nodes, 'nodes');
 
                 const notContains = element => !currentElements.nodes.find(it => it.data.id === element);
 
-                const edges = data.relacionadas
+                const edges = data
                     .filter(it => it !== palavra)
                     .filter(notContains)
                     .map(it => ({data: {source: palavra, target: it}}));
@@ -49,32 +91,81 @@ class App extends Component {
 
                 newElements.clusters.push(cluster);
 
-                this.setState({elements: newElements});
+                this.setState({
+                    currentNode: palavra,
+                    elements: newElements
+                });
+            });
+    };
+
+    fetchRelacionadas = (dominio, palavra) => {
+        const currentElements = this.state.elements;
+        console.log(currentElements, "currentElements");
+
+        axios
+            .get(`/api/relacionadas/${dominio}/${palavra}`)
+            .then(({data}) => {
+                const nodes = data
+                    .concat(palavra)
+                    .map(it => ({
+                        data: {
+                            id: it,
+                            label: it,
+                            context: dominio,
+                            type: 'palavra'
+                        }
+                    }));
+
+                const notContains = element => !currentElements.nodes.find(it => it.data.id === element);
+
+                const edges = data
+                    .filter(it => it !== dominio)
+                    .filter(notContains)
+                    .map(it => ({data: {source: dominio, target: it}}));
+
+                console.log(edges, "edges");
+
+                const cluster = [].concat(dominio, edges.map(it => it.data.target));
+
+                const newElements = Object.assign({}, currentElements, {
+                    nodes,
+                    edges
+                });
+
+                newElements.clusters.push(cluster);
+
+                this.setState({
+                    currentNode: dominio,
+                    elements: newElements
+                });
             });
     };
 
     render() {
-        const {palavraBusca, elements} = this.state;
+        const {palavraBusca, currentNode, elements} = this.state;
 
         return (
             <div className="App">
                 <header>Lácio</header>
 
-                <div>
+                <form onSubmit={this.onSearch}>
                     <input type="text"
                            value={palavraBusca}
-                           onChange={this.onChange}/>
-                    <button onClick={e => this.fetch(palavraBusca)}>
-                        Buscar
-                    </button>
-                </div>
+                           onChange={this.onChange}
+                           autoFocus/>
+                    <input type="submit" value="Buscar"/>
+                </form>
 
-                <Graph nodes={elements}/>
+                <Graph context={currentNode}
+                       nodes={elements}
+                       onClickNode={this.onClickNode}
+                />
             </div>
         );
     }
 }
 
+// TODO Prop Types
 class Graph extends Component {
 
     constructor(props) {
@@ -83,11 +174,12 @@ class Graph extends Component {
     }
 
     componentDidMount() {
-        const {nodes} = this.props;
+        const {nodes, onClickNode} = this.props;
 
         console.log(nodes);
 
-        this.cy = cytoscape({
+        // TODO remover window.cy
+        window.cy = this.cy = cytoscape({
             container: this.graph.current,
 
             elements: nodes,
@@ -96,7 +188,7 @@ class Graph extends Component {
                 {
                     selector: 'node',
                     style: {
-                        'background-color': '#666',
+                        'background-color': ele => ele.data('type') === 'dominio' ? 'red' : 'gray',
                         'label': 'data(id)'
                     }
                 },
@@ -115,9 +207,17 @@ class Graph extends Component {
             layout: {name: 'null'}
 
         });
+
+        this.cy.on('tap', 'node', function () {
+            onClickNode(this);
+        });
+
+        this.cy.on('tap', 'edge', function (e) {
+            console.log(e);
+        });
     }
 
-    build(nodes) {
+    build(context, nodes) {
         console.log(nodes);
 
         if (!this.cy) return;
@@ -126,20 +226,13 @@ class Graph extends Component {
 
         this.cy.layout({
             name: 'cise',
-            animate: true,
+            animate: false, // true atrapalha a centralização
             clusters: nodes.clusters,
+            ready: () => {
+                console.log("ready");
+                this.cy.fit(this.cy.$(`[context='${context}']`));
+            }
         }).run();
-
-        const clusterColors = ['#756D76', '#3ac4e1', '#ad277e', '#4139dd', '#d57dba', '#8ab23c', '#8dcaa4'];
-
-        this.cy.style().selector('node').style({
-            'background-color': ele => {
-                for (let i = 0; i < nodes.clusters.length; i++)
-                    if (nodes.clusters[i].includes(ele.data('id')))
-                        return clusterColors[i];
-                return '#756D76';
-            },
-        }).update();
     }
 
     shouldComponentUpdate(nextProps, nextState, nextContext) {
@@ -147,9 +240,11 @@ class Graph extends Component {
     }
 
     render() {
+        const {context} = this.props;
+
         console.log("[Graph] render");
 
-        this.build(this.props.nodes);
+        this.build(context, this.props.nodes);
 
         return (
             <div className="result" ref={this.graph}/>
