@@ -1,0 +1,38 @@
+/* CSS resets */
+* {
+    box-sizing: border-box;
+}
+
+html, body, #root {
+    height: 100%;
+}
+
+/* fim reset */
+
+body {
+    padding: 10px;
+}
+
+.App {
+    height: 100%;
+}
+
+.Header {
+    float: left;
+    width: 100%;
+}
+
+.Header .title {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+.App .content {
+    padding-top: 80px;
+}
+
+.App .content,
+.App .content .WordGraph {
+    height: 100%;
+    width: 100%;
+}
