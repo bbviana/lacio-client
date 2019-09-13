@@ -38,32 +38,45 @@ const receiveDominios = (previousState, action) => {
         type: 'dominio'
     }));
 
-    const newNodes = dominiosNodes.concat(palavraNode);
+    const newNodes = dominiosNodes
+        .filter(isNotInCollection(currentNodes));
 
-    const newEdges = dominiosNodes
-        .filter(isNotInCollection(currentNodes))
-        .map(it => ({source: palavraNode.id, target: it.id}));
+    const newEdges = newNodes
+        .map(it => ({
+            source: palavraNode.id,
+            target: it.id,
+            palavra: palavraNode.label,
+            dominio: it.label,
+        }));
+
+    newNodes.push(palavraNode);
 
     const newCluster = [].concat(palavraNode.id, newEdges.map(it => it.target));
+    let newClusterAdded = false;
     const newClusters = [];
 
     for (const currentCluster of currentClusters) {
-        if (currentCluster.indexOf(palavraNode.id) === -1) {
+        // cluster que não tem a palavra: mantém na lista de clusters
+        const isOnCurrentCluster = currentCluster.indexOf(palavraNode.id) !== -1;
+        if (!isOnCurrentCluster) {
             newClusters.push(currentCluster);
-            continue;
         }
 
-        if (page === 1) {
+        // remove palavra do cluster atual e coloca em um novo
+        if (isOnCurrentCluster && page === 1) {
             newClusters.push(newCluster);
+            newClusterAdded = true;
             newClusters.push(currentCluster.filter(it => it !== palavraNode.id))
-        } else { // page >= 2
+        }
+
+        // adiciona ao cluster que ja tem a palavra
+        if (isOnCurrentCluster && page >= 2) {
             newClusters.push([...currentCluster, ...newCluster]);
+            newClusterAdded = true;
         }
     }
 
-    if (currentClusters.length === 0) {
-        newClusters.push(newCluster);
-    }
+    !newClusterAdded && newClusters.push(newCluster);
 
     return {
         palavraBusca: "",
@@ -106,32 +119,46 @@ const receiveRelacionadas = (previousState, action) => {
             type: 'palavra'
         }));
 
-    const newNodes = palavrasNodes.concat(dominioNode);
+    // FIXME trecho praticamente idêntico a receiveDominios: encapuslar
+    const newNodes = palavrasNodes
+        .filter(isNotInCollection(currentNodes));
 
-    const newEdges = palavrasNodes
-        .filter(isNotInCollection(currentNodes))
-        .map(it => ({source: dominioNode.id, target: it.id}));
+    const newEdges = newNodes
+        .map(it => ({
+            source: dominioNode.id,
+            target: it.id,
+            palavra: it.label,
+            dominio: dominioNode.label,
+        }));
+
+    newNodes.push(dominioNode);
 
     const newCluster = [].concat(dominioNode.id, newEdges.map(it => it.target));
+    let newClusterAdded = false;
     const newClusters = [];
 
     for (const currentCluster of currentClusters) {
-        if (currentCluster.indexOf(dominioNode.id) === -1) {
+        // cluster que não tem a palavra: mantém na lista de clusters
+        const isOnCurrentCluster = currentCluster.indexOf(dominioNode.id) !== -1;
+        if (!isOnCurrentCluster) {
             newClusters.push(currentCluster);
-            continue;
         }
 
-        if (page === 1) {
+        // remove palavra do cluster atual e coloca em um novo
+        if (isOnCurrentCluster && page === 1) {
             newClusters.push(newCluster);
+            newClusterAdded = true;
             newClusters.push(currentCluster.filter(it => it !== dominioNode.id))
-        } else { // page >= 2
+        }
+
+        // adiciona ao cluster que ja tem a palavra
+        if (isOnCurrentCluster && page >= 2) {
             newClusters.push([...currentCluster, ...newCluster]);
+            newClusterAdded = true;
         }
     }
 
-    if (currentClusters.length === 0) {
-        newClusters.push(newCluster);
-    }
+    !newClusterAdded && newClusters.push(newCluster);
 
     return {
         currentNode: dominio,
@@ -143,7 +170,23 @@ const receiveRelacionadas = (previousState, action) => {
     };
 };
 
+const receiveSignificados = (previousState, action) => {
+    const {palavra, dominio, data} = action;
+
+    console.log(data, "receiveSignificados");
+
+    return {
+        significado: {
+            palavra,
+            dominio,
+            definicoes: data
+        }
+    }
+
+};
+
 export default {
     receiveDominios,
-    receiveRelacionadas
+    receiveRelacionadas,
+    receiveSignificados
 };

@@ -5,6 +5,14 @@ import cytoscape from 'cytoscape';
 // registra layout
 cytoscape.use(cise);
 
+/**
+ * O cytoscape não foi implementado sob a filosofia declarativa.
+ * Sua abordagem imperativa gera algumas dificuldades quando integramos com o React.
+ * Esta classe é um wrapper para esconder essa integração meio "deselegante".
+ *
+ * Até tentei usar um wrapper já pronto, https://github.com/plotly/react-cytoscapejs,
+ * mas tinha muitos bugs e não quis perder tempo.
+ */
 class WordGraph extends Component {
 
     constructor(props) {
@@ -13,7 +21,7 @@ class WordGraph extends Component {
     }
 
     componentDidMount() {
-        const {onClickNode} = this.props;
+        const {onClickNode, onClickEdge} = this.props;
 
         this.cy = cytoscape({
             container: this.graph.current,
@@ -31,9 +39,7 @@ class WordGraph extends Component {
                     selector: 'edge',
                     style: {
                         'width': 3,
-                        'line-color': '#ccc',
-                        'target-arrow-color': '#ccc',
-                        'target-arrow-shape': 'triangle'
+                        'line-color': '#ccc'
                     }
                 }
             ]
@@ -44,7 +50,8 @@ class WordGraph extends Component {
         });
 
         this.cy.on('tap', 'edge', function (e) {
-            console.log(e);
+            console.log(e.renderedPosition);
+            onClickEdge(this);
         });
     }
 
@@ -53,16 +60,18 @@ class WordGraph extends Component {
 
         const formattedElements = toCytoscapeFormat(elements);
 
+        console.log(formattedElements.nodes, "nodes");
+        console.log(formattedElements.clusters, "clusters");
+
         // removemos nós anteriores, pois podemos ter alterado alguma meta informação deles e queremos sobrescrever
         this.cy.remove('node');
         this.cy.add(formattedElements);
 
         this.cy.layout({
             name: 'cise',
-            // animate: 'end', // true atrapalha cy.fit()
+            // animate: 'end', // não funcionou bem com o cy.fit() do ready
             fit: false,
-            // allowNodesInsideCircle: true,
-            nodeRepulsion: 1,
+            nodeRepulsion: 5,
             clusters: formattedElements.clusters, // clusters são os grupos do cise layout: os círculos
             ready: () => {
                 // faz o viewport exibir os nodes do contexto atual, i.e, a íltima palavra escolhida
