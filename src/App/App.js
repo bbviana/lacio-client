@@ -26,6 +26,8 @@ class App extends Component {
         document.addEventListener("click", () => this.clearSignificado())
     }
 
+    // ---
+
     onChangeBusca = e => {
         this.setState({palavraBusca: e.target.value})
     };
@@ -64,6 +66,8 @@ class App extends Component {
         this.fetchSignificados(dominio, palavra);
     };
 
+    // ---
+
     fetchDominios = (palavra, page) => {
         api
             .dominios(palavra, page)
@@ -100,11 +104,16 @@ class App extends Component {
 
     clearSignificado = () => this.setState({significado: {}});
 
+    // ---
+
     render() {
         const {palavraBusca, currentNode, elements, significado} = this.state;
 
         return (
             <div className="App">
+                {this.state.loading &&
+                <div>Loading...</div>}
+
                 <Header buscaValue={palavraBusca}
                         onChangeBusca={this.onChangeBusca}
                         onSearch={this.onSearch}/>
@@ -127,32 +136,26 @@ class App extends Component {
     }
 }
 
-const Header = ({buscaValue, onChangeBusca, onSearch}) => {
-    return (
-        <div className="Header">
-            <span className="title">Lácio</span>
+const Header = ({buscaValue, onChangeBusca, onSearch}) =>
+    <div className="Header">
+        <span className="title">Lácio</span>
 
-            <form onSubmit={onSearch}>
-                <input type="text"
-                       value={buscaValue}
-                       placeholder="Por ex: gato, terra, bóson"
-                       autoFocus
-                       onChange={onChangeBusca}
-                />
-                <input type="submit"
-                       value="Adicionar"/>
-            </form>
-        </div>
-    )
-};
+        <form onSubmit={onSearch}>
+            <input type="text"
+                   value={buscaValue}
+                   placeholder="Por ex: gato, terra, bóson"
+                   autoFocus
+                   onChange={onChangeBusca}
+            />
+            <input type="submit"
+                   value="Adicionar"/>
+        </form>
+    </div>;
 
-const Subtitle = () => {
-    return (
-        <div className="Subtitle">
-            <div className="palavra">palavra</div>
-            <div className="dominio">domínio conceitual</div>
-        </div>
-    )
-};
+const Subtitle = () =>
+    <div className="Subtitle">
+        <div className="palavra">palavra</div>
+        <div className="dominio">domínio conceitual</div>
+    </div>;
 
 export default App;
